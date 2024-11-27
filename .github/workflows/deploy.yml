@@ -1,0 +1,48 @@
+name: Deploy to S3 with Temporary Token Refresh
+
+on:
+  push:
+    branches:
+      - main  # Jalankan pada push ke branch "main"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest  # Menjalankan di server Ubuntu
+
+    steps:
+    - name: Checkout repository  # Langkah pertama: ambil kode dari repository
+      uses: actions/checkout@v3
+
+    - name: Setup Python  # Langkah kedua: atur environment Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies  # Langkah ketiga: instal dependensi Python
+      run: |
+        pip install boto3 python-dotenv
+
+    - name: Install jq  # Langkah keempat: instal jq untuk parsing JSON
+      run: sudo apt-get install -y jq
+
+    - name: Get New Session Token  # Langkah untuk memperbarui token sementara
+      run: |
+        aws sts get-session-token --duration-seconds 3600 > session-token.json
+        export AWS_ACCESS_KEY=$(cat session-token.json | jq -r '.Credentials.AccessKeyId')
+        export AWS_SECRET_KEY=$(cat session-token.json | jq -r '.Credentials.SecretAccessKey')
+        export AWS_SESSION_TOKEN=$(cat session-token.json | jq -r '.Credentials.SessionToken')
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+
+    - name: Deploy to S3  # Jalankan deployment setelah mendapatkan token baru
+      env:
+        AWS_ACCESS_KEY: $AWS_ACCESS_KEY
+        AWS_SECRET_KEY: $AWS_SECRET_KEY
+        AWS_SESSION_TOKEN: $AWS_SESSION_TOKEN
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+        BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+        BUILD_DIR: ./build
+      run: |
+        python deploy.py
