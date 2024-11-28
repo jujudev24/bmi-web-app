@@ -23,7 +23,7 @@ def upload_folder_to_s3(local_folder, bucket_name, s3_folder):
         aws_session_token=os.getenv('AWS_SESSION_TOKEN')
     )
 
-    for root, dirs, files in os.walk(local_folder):
+    for root, dirs, files in os.walk(local_folder): 
         for file in files:
             local_file_path = os.path.join(root, file)
             s3_file_path = os.path.join(
